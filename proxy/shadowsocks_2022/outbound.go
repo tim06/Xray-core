@@ -3,6 +3,7 @@ package shadowsocks_2022
 import (
 	"context"
 	"time"
+	"log"
 
 	shadowsocks "github.com/sagernet/sing-shadowsocks"
 	"github.com/sagernet/sing-shadowsocks/shadowaead_2022"
@@ -21,6 +22,7 @@ import (
 )
 
 func init() {
+    log.Println("Init outbound shadowsocks!!!1")
 	common.Must(common.RegisterConfig((*ClientConfig)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
 		return NewClient(ctx, config.(*ClientConfig))
 	}))
@@ -34,6 +36,7 @@ type Outbound struct {
 }
 
 func NewClient(ctx context.Context, config *ClientConfig) (*Outbound, error) {
+    log.Println("Init outbound shadowsocks NewClient()!!!1")
 	o := &Outbound{
 		ctx: ctx,
 		server: net.Destination{

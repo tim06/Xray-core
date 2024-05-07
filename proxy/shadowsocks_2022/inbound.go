@@ -2,6 +2,7 @@ package shadowsocks_2022
 
 import (
 	"context"
+	"log"
 
 	shadowsocks "github.com/sagernet/sing-shadowsocks"
 	"github.com/sagernet/sing-shadowsocks/shadowaead_2022"
@@ -23,6 +24,7 @@ import (
 )
 
 func init() {
+    log.Println("Init inbound shadowsocks!!!1")
 	common.Must(common.RegisterConfig((*ServerConfig)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
 		return NewServer(ctx, config.(*ServerConfig))
 	}))
@@ -36,6 +38,7 @@ type Inbound struct {
 }
 
 func NewServer(ctx context.Context, config *ServerConfig) (*Inbound, error) {
+    log.Println("Init inbound shadowsocks NewServer()!!!1")
 	networks := config.Network
 	if len(networks) == 0 {
 		networks = []net.Network{
