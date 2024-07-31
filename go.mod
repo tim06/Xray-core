@@ -62,4 +62,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/sagernet/sing-shadowsocks v0.2.6 => github.com/tim06/sing-shadowsocks v0.1.5
+replace github.com/sagernet/sing-shadowsocks v0.2.7 => github.com/tim06/sing-shadowsocks v0.1.5
