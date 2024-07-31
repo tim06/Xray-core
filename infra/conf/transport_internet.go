@@ -229,8 +229,10 @@ type SplitHTTPConfig struct {
 	Host                 string            `json:"host"`
 	Path                 string            `json:"path"`
 	Headers              map[string]string `json:"headers"`
-	MaxConcurrentUploads int32             `json:"maxConcurrentUploads"`
-	MaxUploadSize        int32             `json:"maxUploadSize"`
+	ScMaxConcurrentPosts Int32Range        `json:"scMaxConcurrentPosts"`
+	ScMaxEachPostBytes   Int32Range        `json:"scMaxEachPostBytes"`
+	ScMinPostsIntervalMs Int32Range        `json:"scMinPostsIntervalMs"`
+	NoSSEHeader          bool              `json:"noSSEHeader"`
 }
 
 // Build implements Buildable.
@@ -244,11 +246,22 @@ func (c *SplitHTTPConfig) Build() (proto.Message, error) {
 		c.Host = c.Headers["Host"]
 	}
 	config := &splithttp.Config{
-		Path:                 c.Path,
-		Host:                 c.Host,
-		Header:               c.Headers,
-		MaxConcurrentUploads: c.MaxConcurrentUploads,
-		MaxUploadSize:        c.MaxUploadSize,
+		Path:   c.Path,
+		Host:   c.Host,
+		Header: c.Headers,
+		ScMaxConcurrentPosts: &splithttp.RandRangeConfig{
+			From: c.ScMaxConcurrentPosts.From,
+			To:   c.ScMaxConcurrentPosts.To,
+		},
+		ScMaxEachPostBytes: &splithttp.RandRangeConfig{
+			From: c.ScMaxEachPostBytes.From,
+			To:   c.ScMaxEachPostBytes.To,
+		},
+		ScMinPostsIntervalMs: &splithttp.RandRangeConfig{
+			From: c.ScMinPostsIntervalMs.From,
+			To:   c.ScMinPostsIntervalMs.To,
+		},
+		NoSSEHeader: c.NoSSEHeader,
 	}
 	return config, nil
 }
@@ -372,6 +385,7 @@ type TLSCertConfig struct {
 	Usage          string   `json:"usage"`
 	OcspStapling   uint64   `json:"ocspStapling"`
 	OneTimeLoading bool     `json:"oneTimeLoading"`
+	BuildChain     bool     `json:"buildChain"`
 }
 
 // Build implements Buildable.
@@ -410,6 +424,7 @@ func (c *TLSCertConfig) Build() (*tls.Certificate, error) {
 		certificate.OneTimeLoading = c.OneTimeLoading
 	}
 	certificate.OcspStapling = c.OcspStapling
+	certificate.BuildChain = c.BuildChain
 
 	return certificate, nil
 }
@@ -685,23 +700,31 @@ func (p TransportProtocol) Build() (string, error) {
 	}
 }
 
+type CustomSockoptConfig struct {
+	Level string `json:"level"`
+	Opt   string `json:"opt"`
+	Value string `json:"value"`
+	Type  string `json:"type"`
+}
+
 type SocketConfig struct {
-	Mark                 int32       `json:"mark"`
-	TFO                  interface{} `json:"tcpFastOpen"`
-	TProxy               string      `json:"tproxy"`
-	AcceptProxyProtocol  bool        `json:"acceptProxyProtocol"`
-	DomainStrategy       string      `json:"domainStrategy"`
-	DialerProxy          string      `json:"dialerProxy"`
-	TCPKeepAliveInterval int32       `json:"tcpKeepAliveInterval"`
-	TCPKeepAliveIdle     int32       `json:"tcpKeepAliveIdle"`
-	TCPCongestion        string      `json:"tcpCongestion"`
-	TCPWindowClamp       int32       `json:"tcpWindowClamp"`
-	TCPMaxSeg            int32       `json:"tcpMaxSeg"`
-	TcpNoDelay           bool        `json:"tcpNoDelay"`
-	TCPUserTimeout       int32       `json:"tcpUserTimeout"`
-	V6only               bool        `json:"v6only"`
-	Interface            string      `json:"interface"`
-	TcpMptcp             bool        `json:"tcpMptcp"`
+	Mark                 int32                  `json:"mark"`
+	TFO                  interface{}            `json:"tcpFastOpen"`
+	TProxy               string                 `json:"tproxy"`
+	AcceptProxyProtocol  bool                   `json:"acceptProxyProtocol"`
+	DomainStrategy       string                 `json:"domainStrategy"`
+	DialerProxy          string                 `json:"dialerProxy"`
+	TCPKeepAliveInterval int32                  `json:"tcpKeepAliveInterval"`
+	TCPKeepAliveIdle     int32                  `json:"tcpKeepAliveIdle"`
+	TCPCongestion        string                 `json:"tcpCongestion"`
+	TCPWindowClamp       int32                  `json:"tcpWindowClamp"`
+	TCPMaxSeg            int32                  `json:"tcpMaxSeg"`
+	TcpNoDelay           bool                   `json:"tcpNoDelay"`
+	TCPUserTimeout       int32                  `json:"tcpUserTimeout"`
+	V6only               bool                   `json:"v6only"`
+	Interface            string                 `json:"interface"`
+	TcpMptcp             bool                   `json:"tcpMptcp"`
+	CustomSockopt        []*CustomSockoptConfig `json:"customSockopt"`
 }
 
 // Build implements Buildable.
@@ -759,6 +782,18 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		return nil, errors.New("unsupported domain strategy: ", c.DomainStrategy)
 	}
 
+	var customSockopts []*internet.CustomSockopt
+
+	for _, copt := range c.CustomSockopt {
+		customSockopt := &internet.CustomSockopt{
+			Level: copt.Level,
+			Opt:   copt.Opt,
+			Value: copt.Value,
+			Type:  copt.Type,
+		}
+		customSockopts = append(customSockopts, customSockopt)
+	}
+
 	return &internet.SocketConfig{
 		Mark:                 c.Mark,
 		Tfo:                  tfo,
@@ -776,6 +811,7 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		V6Only:               c.V6only,
 		Interface:            c.Interface,
 		TcpMptcp:             c.TcpMptcp,
+		CustomSockopt:        customSockopts,
 	}, nil
 }
 
