@@ -1,27 +1,28 @@
 package encoding
 
 import (
-	"bytes"
-	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/binary"
-	"hash/fnv"
-	"io"
+    "bytes"
+    "context"
+    "crypto/aes"
+    "crypto/cipher"
+    "crypto/rand"
+    "crypto/sha256"
+    "encoding/binary"
+    "hash/fnv"
+    "io"
 
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/bitmask"
-	"github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/common/crypto"
-	"github.com/xtls/xray-core/common/dice"
-	"github.com/xtls/xray-core/common/drain"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/proxy/vmess"
-	vmessaead "github.com/xtls/xray-core/proxy/vmess/aead"
-	"golang.org/x/crypto/chacha20poly1305"
+    "github.com/xtls/xray-core/common"
+    "github.com/xtls/xray-core/common/bitmask"
+    "github.com/xtls/xray-core/common/buf"
+    "github.com/xtls/xray-core/common/crypto"
+    "github.com/xtls/xray-core/common/dice"
+    "github.com/xtls/xray-core/common/drain"
+    "github.com/xtls/xray-core/common/errors"
+    "github.com/xtls/xray-core/common/ntp"
+    "github.com/xtls/xray-core/common/protocol"
+    "github.com/xtls/xray-core/proxy/vmess"
+    vmessaead "github.com/xtls/xray-core/proxy/vmess/aead"
+    "golang.org/x/crypto/chacha20poly1305"
 )
 
 // ClientSession stores connection session info for VMess client.
@@ -34,6 +35,7 @@ type ClientSession struct {
 	responseHeader  byte
 
 	readDrainer drain.Drainer
+	ntpClient *ntp.NTPClient
 }
 
 // NewClientSession creates a new ClientSession.
@@ -52,9 +54,7 @@ func NewClientSession(ctx context.Context, behaviorSeed int64) *ClientSession {
 	copy(session.responseBodyIV[:], BodyIV[:16])
 
 	// Инициализация NTPClient внутри NewClientSession
-	ntpClient := ntp.NewNTPClient("0.ru.pool.ntp.org", "1.ru.pool.ntp.org", "time.google.com", "time.windows.com", "ntps1-1.cs.tu-berlin.de")
-	currentTime := ntpClient.Now().Unix()
-	log.Printf("Using current NTP time for VMess session: %d", currentTime)
+	session.ntpClient = ntp.NewNTPClient("0.ru.pool.ntp.org", "1.ru.pool.ntp.org", "time.google.com", "time.windows.com", "ntps1-1.cs.tu-berlin.de")
 
 	var err error
 	session.readDrainer, err = drain.NewBehaviorSeedLimitedDrainer(behaviorSeed, 18, 3266, 64)
@@ -101,7 +101,7 @@ func (c *ClientSession) EncodeRequestHeader(header *protocol.RequestHeader, writ
 
 	var fixedLengthCmdKey [16]byte
 	copy(fixedLengthCmdKey[:], account.ID.CmdKey())
-	vmessout := vmessaead.SealVMessAEADHeader(fixedLengthCmdKey, buffer.Bytes())
+	vmessout := vmessaead.SealVMessAEADHeader(fixedLengthCmdKey, buffer.Bytes(), c.ntpClient.Now().Unix())
 	common.Must2(io.Copy(writer, bytes.NewReader(vmessout)))
 
 	return nil

@@ -1,7 +1,6 @@
 package ntp
 
 import (
-	"fmt"
 	"github.com/beevik/ntp"
 	"log"
 	"sync"
