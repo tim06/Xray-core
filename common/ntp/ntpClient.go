@@ -74,3 +74,7 @@ func (c *NTPClient) Now() time.Time {
 
     return time.Now().Add(c.offset)
 }
+
+func (c *NTPClient) Offset() time.Duration {
+    return c.offset
+}

@@ -3,30 +3,31 @@ package outbound
 //go:generate go run github.com/xtls/xray-core/common/errors/errorgen
 
 import (
-	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"hash/crc64"
-	"time"
+    "context"
+    "crypto/hmac"
+    "crypto/sha256"
+    "hash/crc64"
+    "time"
 
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/platform"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/retry"
-	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/common/signal"
-	"github.com/xtls/xray-core/common/task"
-	"github.com/xtls/xray-core/common/xudp"
-	core "github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features/policy"
-	"github.com/xtls/xray-core/proxy/vmess"
-	"github.com/xtls/xray-core/proxy/vmess/encoding"
-	"github.com/xtls/xray-core/transport"
-	"github.com/xtls/xray-core/transport/internet"
-	"github.com/xtls/xray-core/transport/internet/stat"
+    "github.com/xtls/xray-core/common"
+    "github.com/xtls/xray-core/common/buf"
+    "github.com/xtls/xray-core/common/errors"
+    "github.com/xtls/xray-core/common/net"
+    "github.com/xtls/xray-core/common/ntp"
+    "github.com/xtls/xray-core/common/platform"
+    "github.com/xtls/xray-core/common/protocol"
+    "github.com/xtls/xray-core/common/retry"
+    "github.com/xtls/xray-core/common/session"
+    "github.com/xtls/xray-core/common/signal"
+    "github.com/xtls/xray-core/common/task"
+    "github.com/xtls/xray-core/common/xudp"
+    core "github.com/xtls/xray-core/core"
+    "github.com/xtls/xray-core/features/policy"
+    "github.com/xtls/xray-core/proxy/vmess"
+    "github.com/xtls/xray-core/proxy/vmess/encoding"
+    "github.com/xtls/xray-core/transport"
+    "github.com/xtls/xray-core/transport/internet"
+    "github.com/xtls/xray-core/transport/internet/stat"
 )
 
 // Handler is an outbound connection handler for VMess protocol.
@@ -35,6 +36,7 @@ type Handler struct {
 	serverPicker  protocol.ServerPicker
 	policyManager policy.Manager
 	cone          bool
+	ntpClient *ntp.NTPClient
 }
 
 // New creates a new VMess outbound handler.
@@ -54,6 +56,7 @@ func New(ctx context.Context, config *Config) (*Handler, error) {
 		serverPicker:  protocol.NewRoundRobinServerPicker(serverList),
 		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
 		cone:          ctx.Value("cone").(bool),
+		ntpClient: 	   ntp.NewNTPClient("0.ru.pool.ntp.org", "1.ru.pool.ntp.org", "time.google.com", "time.windows.com", "ntps1-1.cs.tu-berlin.de"),
 	}
 
 	return handler, nil
@@ -163,7 +166,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		defer timer.SetTimeout(sessionPolicy.Timeouts.DownlinkOnly)
 
 		writer := buf.NewBufferedWriter(buf.NewWriter(conn))
-		if err := session.EncodeRequestHeader(request, writer); err != nil {
+		if err := session.EncodeRequestHeader(request, writer, h.ntpClient.Offset()); err != nil {
 			return errors.New("failed to encode request").Base(err).AtWarning()
 		}
 

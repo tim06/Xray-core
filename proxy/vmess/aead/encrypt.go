@@ -7,12 +7,13 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"io"
+    "time"
 
-	"github.com/xtls/xray-core/common"
+    "github.com/xtls/xray-core/common"
 )
 
-func SealVMessAEADHeader(key [16]byte, data []byte, currentTime int64) []byte {
-	generatedAuthID := CreateAuthID(key[:], currentTime)
+func SealVMessAEADHeader(key [16]byte, data []byte, currentOffset time.Duration) []byte {
+	generatedAuthID := CreateAuthID(key[:], time.Now().Add(currentOffset).Unix())
 
 	connectionNonce := make([]byte, 8)
 	if _, err := io.ReadFull(rand.Reader, connectionNonce); err != nil {
