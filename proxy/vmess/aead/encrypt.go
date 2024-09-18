@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"io"
-	"time"
 
 	"github.com/xtls/xray-core/common"
 )
