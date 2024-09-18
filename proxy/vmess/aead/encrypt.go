@@ -12,8 +12,8 @@ import (
 	"github.com/xtls/xray-core/common"
 )
 
-func SealVMessAEADHeader(key [16]byte, data []byte) []byte {
-	generatedAuthID := CreateAuthID(key[:], time.Now().Unix())
+func SealVMessAEADHeader(key [16]byte, data []byte, currentTime int64) []byte {
+	generatedAuthID := CreateAuthID(key[:], currentTime)
 
 	connectionNonce := make([]byte, 8)
 	if _, err := io.ReadFull(rand.Reader, connectionNonce); err != nil {

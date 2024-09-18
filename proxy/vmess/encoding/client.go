@@ -50,13 +50,17 @@ func NewClientSession(ctx context.Context, behaviorSeed int64) *ClientSession {
 	copy(session.responseBodyKey[:], BodyKey[:16])
 	BodyIV := sha256.Sum256(session.requestBodyIV[:])
 	copy(session.responseBodyIV[:], BodyIV[:16])
-	{
-		var err error
-		session.readDrainer, err = drain.NewBehaviorSeedLimitedDrainer(behaviorSeed, 18, 3266, 64)
-		if err != nil {
-			errors.LogInfoInner(ctx, err, "unable to initialize drainer")
-			session.readDrainer = drain.NewNopDrainer()
-		}
+
+	// Инициализация NTPClient внутри NewClientSession
+	ntpClient := ntp.NewNTPClient("0.ru.pool.ntp.org", "1.ru.pool.ntp.org", "time.google.com", "time.windows.com", "ntps1-1.cs.tu-berlin.de")
+	currentTime := ntpClient.Now().Unix()
+	log.Printf("Using current NTP time for VMess session: %d", currentTime)
+
+	var err error
+	session.readDrainer, err = drain.NewBehaviorSeedLimitedDrainer(behaviorSeed, 18, 3266, 64)
+	if err != nil {
+		errors.LogInfoInner(ctx, err, "unable to initialize drainer")
+		session.readDrainer = drain.NewNopDrainer()
 	}
 
 	return session
